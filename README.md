@@ -16,7 +16,7 @@ Linux環境であれば`get_iris_sample.sh`スクリプトを以下のように�
 ``` 
 
 Windowsの場合は、
-https://archive.ics.uci.edu/ml/machine-learning-databases/iris/iris.data
+https://archive.ics.uci.edu/ml/machine-learning-databases/iris/iris.data 
 からファイルをダウンロードしてこのプロジェクトのディレクトリに置きます。
 コマンドからこのプロジェクトのディレクトリに移動して、以下を実行してください。
 ```
@@ -49,7 +49,7 @@ python classifier.py -f dataset.csv -A 4 --model rf --feature_selection --grid_s
 * `-f dataset.csv`　はデータセットのファイルを指定しています。
 * `-A 4`は予測ラベルの列の番号を指定してます。今回は4列目が目的変数なので4としています。
 * `--model rf`は手法を指定します。rfはランダムフォレストです。指定できる手法に関しては後述します。
-* `--feature_selection`特徴選択を行います。選択するための手法は recursive feature elimination になります。（http://scikit-learn.org/stable/modules/generated/sklearn.feature_selection.RFECV.html）
+* `--feature_selection`特徴選択を行います。選択するための手法は recursive feature elimination になります。（http://scikit-learn.org/stable/modules/generated/sklearn.feature_selection.RFECV.html ）
 * `--grid_search`　ハイパーパラメータを決めるためにグリッドサーチを行います。
 * `--output_json test.json`：test.jsonに結果をjsonファイル形式で保存します。
 * `--output_csv test.csv`：結果のサマリをcsv形式で保存します。
@@ -69,12 +69,16 @@ python classifier.py -f dataset.csv -A 4 --model rf --feature_selection --grid_s
 *  `--answer ANSWER, -A ANSWER`：入力するデータセットファイルで目的変数となる列を指定してください。整数値のみに対応しているため、適切に前処理を行い整数にする必要があります。
 *  `--ignore [IGNORE [IGNORE ...]], -I [IGNORE [IGNORE ...]]`：入力するデータセットファイルで、本プログラムで使用しない列を指定できます。例えば、データIDや氏名といった変数は予測に利用すべきではないため、ここで指定する必要があります。また、日付等や文字列等の本プログラムで扱えない変数がある場合も指定する必要があります。
 *  `--model MODEL` ：予測に使うモデルを使用します。以下のモデルが使用できます。
-   * `rf`　：ランダムフォレスト（http://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestClassifier.html）
-   * `svm` ：サポートベクターマシンのリニアカーネル（http://scikit-learn.org/stable/modules/generated/sklearn.svm.SVC.html）
-   * `rbf_svm` ：サポートベクターマシンのrbfカーネル（http://scikit-learn.org/stable/modules/generated/sklearn.svm.SVC.html）
+   * `rf`　：ランダムフォレスト（http://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestClassifier.html ）
+   * `svm` ：サポートベクターマシンのリニアカーネル（http://scikit-learn.org/stable/modules/generated/sklearn.svm.SVC.html ）
+   * `rbf_svm` ：サポートベクターマシンのrbfカーネル（http://scikit-learn.org/stable/modules/generated/sklearn.svm.SVC.html ）
      　このオプションと特徴選択--feature_selectionオプションを同時に使うことはできません。 
-   * `lr` ：ロジスティック回帰（http://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html）
-
+   * `lr` ：ロジスティック回帰（http://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html ）
+*  `--task TASK` ：問題の種類を指定します。以下のタスクが使用できます。
+   * `auto`　：自動選択（デフォルトでこれなので、後述の回帰問題を使う場合以外は指定しなくてよい）
+   * `binary` ：二値問題
+   * `multiclass` ：多値問題
+   * `regression` ：回帰問題（回帰問題を扱う場合はこのファイルの回帰問題の章を参照）
 *  `--output_json OUTPUT_JSON`：結果を保存するjsonファイルを指定します。後述するフォーマットで保存されます。より細かく結果を追跡して、解釈するためにはこれを利用する必要があります。
 *  `--output_csv OUTPUT_CSV`：結果のサマリを保存するcsvファイルを指定します。
 
@@ -95,6 +99,7 @@ dataの中身は階層構造を持った以下のような構造になってい�
 <>カッコは入力したデータによって異なる名前になります。""はその名前でアクセスすることができます
 
 * <ファイル名>
+  * 'task'：タスクの種類（binary/multiclass/regression）
   * 'accuracy_mean'：cross-validationの正答率の平均
   * 'accuracy_std'：cross-validationの正答率の標準偏差
   * 'f1_mean'：cross-validationのF値の平均
@@ -141,3 +146,23 @@ for filename,result in data.items():
 #### cross-validation での各フォールドでのROC Curveを表示する例
 `example/plot_roc.py` を参照
 
+## 回帰問題を扱う場合
+
+回帰問題はクラスのラベル（整数値）ではなく数値（実数値）を予測する問題であり、このプログラムを用いて、入力ファイルの正解ラベルの列の数値を予測する問題を評価できる。
+
+### 実行時のオプションの変更
+
+変更するオプションとしては以下の二つのみである。
+*  `--task regression`：このオプションを追加する。
+*  `--model MODEL` ：予測に使うモデルを使用します。回帰問題では以下のモデルが使用できます。
+   * `rf`　：ランダムフォレスト（http://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestRegressor.html ）
+   * `svm` ：サポートベクターマシンのリニアカーネル（http://scikit-learn.org/stable/modules/generated/sklearn.svm.SVR.html ）
+   * `rbf_svm` ：サポートベクターマシンのrbfカーネル（http://scikit-learn.org/stable/modules/generated/sklearn.svm.SVR.html ）
+     　このオプションと特徴選択--feature_selectionオプションを同時に使うことはできません。 
+   * `en` ：Elastic Net（http://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html ）
+   * `br` ：BayesianRidge回帰（http://scikit-learn.org/stable/modules/generated/sklearn.linear_model.BayesianRidge.html#sklearn.linear_model.BayesianRidge ）
+
+###　出力される output_json　の変化
+
+'accuracy'や'f1'の代わりに'r2'スコア（http://scikit-learn.org/stable/modules/generated/sklearn.metrics.r2_score.html ）や'mse'（http://scikit-learn.org/stable/modules/generated/sklearn.metrics.mean_squared_error.html#sklearn.metrics.mean_squared_error ）となる。
+評価値以外の構造は同じ。
