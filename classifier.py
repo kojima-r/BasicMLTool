@@ -111,7 +111,7 @@ def evaluate(test_y,pred_y,prob_y,args,result={}):
 		result["confusion"]=conf
 		accuracy = sklearn.metrics.accuracy_score(test_y,pred_y)
 		result["accuracy"]=accuracy
-	elif args.task=="multilabel":
+	elif args.task=="multiclass":
 		## 多値分類
 		result["roc_curve"]=[]
 		result["auc"]=[]
@@ -268,7 +268,7 @@ def run_train(args):
 			if len(np.unique(y))==2:
 				args.task="binary"
 			else:
-				args.task="multilabel"
+				args.task="multiclass"
 		
 		##
 		## cross-validation を並列化して行う
@@ -348,7 +348,7 @@ if __name__ == '__main__':
 	parser.add_argument("--model",default="rf",
 		help = "method (rf/svm/rbf_svm/lr)", type = str)
 	parser.add_argument("--task",default="auto",
-		help = "task type (auto/binary/multilabel/regression)", type = str)
+		help = "task type (auto/binary/multiclass/regression)", type = str)
 	parser.add_argument('--output_json',default=None,
 		help = "output: json", type=str)
 	parser.add_argument('--output_csv',default=None,
