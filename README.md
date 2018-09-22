@@ -108,3 +108,33 @@ dataの中身は階層構造を持った以下のような構造になってい�
   * 'confusion'：このfoldのテストデータを用いて計算された混同行列
   * 'accuracy'：このfoldのテストデータを用いて計算された正答率
    
+### output_jsonで出力したファイルを処理するプログラム例
+
+#### cross-validation での各フォールドでの正答率を表示する例
+```
+import json
+
+f = open('test.json', 'r')
+data = json.load(f)
+
+for filename,result in data.items():
+  print("filename=",filename)
+  for i,fold_result in enumerate(result['cv']):
+    print("fold",i,": accuracy=",fold_result['accuracy'])
+```
+
+#### cross-validation での各フォールドでの正答率を表示する例
+```
+import json
+
+f = open('test.json', 'r')
+data = json.load(f)
+
+for filename,result in data.items():
+  print("filename=",filename)
+  for i,fold_result in enumerate(result['cv']):
+    print("fold",i,": accuracy=",fold_result['accuracy'])
+```
+#### cross-validation での各フォールドでのROC Curveを表示する例
+`example/plot_roc.py` を参照
+
