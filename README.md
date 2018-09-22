@@ -8,10 +8,23 @@ scikit-learn やnumpyのインストールされた環境であれば動くは�
 
 ## サンプルの動かし方
 
-サンプルデータをダウンロードして、前処理を行います。
+### サンプルデータをダウンロードして、前処理を行います。
+
+Linux環境であれば`get_iris_sample.sh`スクリプトを以下のように実行すれば可能です。
 ```
  sh get_iris_sample.sh
 ``` 
+
+Windowsの場合は、
+https://archive.ics.uci.edu/ml/machine-learning-databases/iris/iris.data
+からファイルをダウンロードしてこのプロジェクトのディレクトリに置きます。
+コマンドからこのプロジェクトのディレクトリに移動して、以下を実行してください。
+```
+python preprocessing_sample_iris.py
+```
+特に何も表示されなければ成功です。
+
+### 前処理により作られるファイル
 
 前処理後のファイルはdataset.csvに保存されます。
 内容を確認すると以下のようになっており、
