@@ -123,18 +123,6 @@ for filename,result in data.items():
     print("fold",i,": accuracy=",fold_result['accuracy'])
 ```
 
-#### cross-validation での各フォールドでの正答率を表示する例
-```
-import json
-
-f = open('test.json', 'r')
-data = json.load(f)
-
-for filename,result in data.items():
-  print("filename=",filename)
-  for i,fold_result in enumerate(result['cv']):
-    print("fold",i,": accuracy=",fold_result['accuracy'])
-```
 #### cross-validation での各フォールドでのROC Curveを表示する例
 `example/plot_roc.py` を参照
 
