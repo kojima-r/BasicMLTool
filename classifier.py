@@ -55,8 +55,8 @@ def get_classifier_model(args):
 # prob_y:予測スコア　　　　　　　　            #
 # result:評価結果を保存するためのディクショナリ#
 ################################################
-def evaluate(test_y,pred_y,prob_y,result={}):
-	if prob_y.shape[1]==2:
+def evaluate(test_y,pred_y,prob_y,args,result={}):
+	if args.task=="binary":
 		## ２値分類
 		auc = sklearn.metrics.roc_auc_score(test_y,prob_y[:,1],average='macro')
 		roc_curve = sklearn.metrics.roc_curve(test_y,prob_y[:,1],pos_label=1)
@@ -158,13 +158,13 @@ def train_cv_one_fold(arg):
 		##
 		print('Best parameters: {}'.format(grid_search.best_params_))
 		print('Best cross-validation: {}'.format(grid_search.best_score_))
-		result={
+		result.update({
 			"param":grid_search.best_params_,
 			"best_score":grid_search.best_score_,
 			"test_y":test_y.tolist(),
 			"pred_y":pred_y.tolist(),
 			"prob_y":prob_y.tolist(),
-			}
+			})
 		##
 		## 最も良かったハイパーパラメータの識別器を保存
 		## （学習データ全体での再フィッティングはこの段階では行わない）
@@ -185,7 +185,7 @@ def train_cv_one_fold(arg):
 	##
 	## 評価
 	##
-	result=evaluate(test_y,pred_y,prob_y,result)
+	result=evaluate(test_y,pred_y,prob_y,args,result)
 	print("Cross-validation accuracy: %3f"%(result["accuracy"]))
 	return result
 
@@ -202,6 +202,12 @@ def run_train(args):
 		x,y,h=load_data(filename,ans_col=args.answer,ignore_col=args.ignore,header=args.header)
 		print("x:",x.shape)
 		print("y:",y.shape)
+		## データから２クラス問題か多クラス問題化を決めておく
+		if args.task=="auto":
+			if len(np.unique(y))==2:
+				args.task="binary"
+			else:
+				args.task="multilabel"
 		
 		##
 		## cross-validation を並列化して行う
@@ -239,6 +245,7 @@ def run_train(args):
 			pred_y.extend(result["pred_y"])
 		conf=sklearn.metrics.confusion_matrix(test_y, pred_y)
 		cv_result["confusion"]=conf
+		cv_result["task"]=args.task
 		##
 		## 結果をディクショナリに保存して返値とする
 		##
@@ -273,7 +280,9 @@ if __name__ == '__main__':
 	parser.add_argument('--ignore','-I',nargs='*',default=[],
 		help = "column numbers for ignored data", type=int)
 	parser.add_argument("--model",default="rf",
-		help = "methods(rf/svm)", type = str)
+		help = "method (rf/svm/rbf_svm/lr)", type = str)
+	parser.add_argument("--task",default="auto",
+		help = "task type (auto/binary/multilabel)", type = str)
 	parser.add_argument('--output_json',default=None,
 		help = "output: json", type=str)
 	parser.add_argument('--output_csv',default=None,
