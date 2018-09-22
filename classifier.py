@@ -7,7 +7,7 @@ import warnings
 from multiprocessing import Pool
 with warnings.catch_warnings():
 	warnings.simplefilter("ignore")
-	from sklearn.ensemble import RandomForestClassifier
+	from sklearn.ensemble import RandomForestClassifier,RandomForestRegressor
 	from sklearn.feature_selection import SelectFromModel
 	from sklearn.feature_selection import RFE,RFECV
 	from sklearn import svm
@@ -46,6 +46,47 @@ def get_classifier_model(args):
 			'C':np.linspace(0.0001, 10, num = args.trials),
 			}
 		clf = sklearn.linear_model.LogisticRegression()
+	else:
+		raise Exception("[ERROR] unknown model:",args.model)
+	return clf,param_grid
+	
+#############################################################################
+# 回帰のためのモデルとグリッドサーチのためのパラメータを返す　　　　　　　　#
+#############################################################################
+def get_regressor_model(args):
+	if args.model=="rf":
+		param_grid = {
+			'n_estimators'      : [10, 100, 1000],
+			'max_features'      : ['auto'],
+			'min_samples_split' : [2],
+			'max_depth'         : [None],
+			}
+		clf = RandomForestRegressor()
+	elif args.model=="svm":
+		param_grid={
+			'C': np.linspace(0.0001, 10, num = args.trials)
+			}
+		clf = svm.SVR(kernel = 'linear')
+	elif args.model=="rbf_svm":
+		param_grid={
+			'C':np.linspace(0.0001, 10, num = args.trials),
+			'gamma':np.linspace(0.01, 100, num = args.trials)
+			}
+		clf = svm.SVR(kernel = 'rbf')
+	elif args.model=="en":
+		param_grid={
+			"alpha":np.linspace(0.0001, 10, num = args.trials),
+			"l1_ratio":np.linspace(0.0001, 1.0, num = args.trials),
+			}
+		clf = sklearn.linear_model.ElasticNet()
+	elif args.model=="br":
+		param_grid={
+			"alpha_1":np.linspace(0.0001, 10, num = args.trials),
+			"alpha_2":np.linspace(0.0001, 10, num = args.trials),
+			}
+		clf = sklearn.linear_model.BayesianRidge()
+	else:
+		raise Exception("[ERROR] unknown model:",args.model)
 	return clf,param_grid
 	
 ################################################
@@ -61,14 +102,16 @@ def evaluate(test_y,pred_y,prob_y,args,result={}):
 		auc = sklearn.metrics.roc_auc_score(test_y,prob_y[:,1],average='macro')
 		roc_curve = sklearn.metrics.roc_curve(test_y,prob_y[:,1],pos_label=1)
 		result["roc_curve"]=roc_curve
-		result["auc"]=auc.tolist()
+		result["auc"]=auc
 		precision, recall, f1, support=sklearn.metrics.precision_recall_fscore_support(test_y,pred_y)
 		result["precision"]=precision
 		result["recall"]=precision
 		result["f1"]=f1
 		conf=sklearn.metrics.confusion_matrix(test_y, pred_y)
 		result["confusion"]=conf
-	else:
+		accuracy = sklearn.metrics.accuracy_score(test_y,pred_y)
+		result["accuracy"]=accuracy
+	elif args.task=="multilabel":
 		## 多値分類
 		result["roc_curve"]=[]
 		result["auc"]=[]
@@ -76,15 +119,21 @@ def evaluate(test_y,pred_y,prob_y,args,result={}):
 			auc = sklearn.metrics.roc_auc_score(test_y==i,prob_y[:,i],average='macro')
 			roc_curve = sklearn.metrics.roc_curve(test_y==i,prob_y[:,i],pos_label=1)
 			result["roc_curve"].append(roc_curve)
-			result["auc"].append(auc.tolist())
+			result["auc"].append(auc)
 		precision, recall, f1, support=sklearn.metrics.precision_recall_fscore_support(test_y,pred_y,average='macro')
 		result["precision"]=precision
 		result["recall"]=precision
 		result["f1"]=f1
 		conf=sklearn.metrics.confusion_matrix(test_y, pred_y)
 		result["confusion"]=conf
-	accuracy = sklearn.metrics.accuracy_score(test_y,pred_y)
-	result["accuracy"]=accuracy
+		accuracy = sklearn.metrics.accuracy_score(test_y,pred_y)
+		result["accuracy"]=accuracy
+	elif args.task=="regression":
+		## 回帰問題
+		result["r2"] = sklearn.metrics.r2_score(test_y,pred_y)
+		result["mse"] = sklearn.metrics.mean_squared_error(test_y,pred_y)
+	else:
+		raise Exception("[ERROR] unknown task:",args.task)
 	return result
 
 ################################################
@@ -103,9 +152,10 @@ def train_cv_one_fold(arg):
 	##
 	## 手法を選択
 	##
-	clf, param_grid = get_classifier_model(args)
-	# clf が学習済みかどうかを表すフラグ
-	fitted=False
+	if args.task=="regression":
+		clf, param_grid = get_regressor_model(args)
+	else:
+		clf, param_grid = get_classifier_model(args)
 	result={}
 	##
 	## 特徴選択を行う
@@ -118,10 +168,12 @@ def train_cv_one_fold(arg):
 		rfe = RFECV(clf)
 		rfe = rfe.fit(train_x, train_y)
 		pred_y = rfe.predict(test_x)
-		prob_y = rfe.predict_proba(test_x)
-		result["test_y"]=test_y.tolist()
-		result["pred_y"]=pred_y.tolist()
-		result["prob_y"]=prob_y.tolist()
+		prob_y = None
+		if hasattr(clf,"predict_proba"):
+			prob_y = rfe.predict_proba(test_x)
+		result["test_y"]=test_y
+		result["pred_y"]=pred_y
+		result["prob_y"]=prob_y
 		##
 		## 選択された特徴を保存する
 		##
@@ -135,7 +187,6 @@ def train_cv_one_fold(arg):
 		##
 		## 学習・テストデータをこのfold中、選択された特徴のみにする
 		##
-		fitted=True
 		train_x=train_x[:,selected_feature]
 		test_x=test_x[:,selected_feature]
 	
@@ -152,7 +203,9 @@ def train_cv_one_fold(arg):
 		## 最も良かったハイパーパラメータのモデルを用いてテストデータで評価を行う
 		##
 		pred_y = grid_search.predict(test_x)
-		prob_y = grid_search.predict_proba(test_x)
+		prob_y=None
+		if hasattr(grid_search,"predict_proba"):
+			prob_y = grid_search.predict_proba(test_x)
 		##
 		## 最も良かったハイパーパラメータや結果を保存
 		##
@@ -161,32 +214,40 @@ def train_cv_one_fold(arg):
 		result.update({
 			"param":grid_search.best_params_,
 			"best_score":grid_search.best_score_,
-			"test_y":test_y.tolist(),
-			"pred_y":pred_y.tolist(),
-			"prob_y":prob_y.tolist(),
+			"test_y":test_y,
+			"pred_y":pred_y,
+			"prob_y":prob_y,
 			})
 		##
 		## 最も良かったハイパーパラメータの識別器を保存
 		## （学習データ全体での再フィッティングはこの段階では行わない）
 		##
 		clf=grid_search.best_estimator_
-		fitted=False
 
 	##
-	## clf が学習済みでなければ、学習データ全体で学習する
+	## clf を学習データ全体で再学習する
 	##
-	if not fitted:
-		clf.fit(train_x,train_y)
+	clf.fit(train_x,train_y)
+	if isinstance(clf,sklearn.linear_model.BayesianRidge):
+		pred_y,pred_y_std = clf.predict(test_x,return_std=True)
+		result["pred_y_std"]=pred_y_std
+	else:
 		pred_y = clf.predict(test_x)
+	result["test_y"]=test_y
+	result["pred_y"]=pred_y
+	prob_y=None
+	if hasattr(clf,"predict_proba"):
 		prob_y = clf.predict_proba(test_x)
-		result["test_y"]=test_y.tolist()
-		result["pred_y"]=pred_y.tolist()
-		result["prob_y"]=prob_y.tolist()
+		result["prob_y"]=prob_y
 	##
 	## 評価
 	##
 	result=evaluate(test_y,pred_y,prob_y,args,result)
-	print("Cross-validation accuracy: %3f"%(result["accuracy"]))
+	if "accuracy" in result:
+		print("Cross-validation accuracy: %3f"%(result["accuracy"]))
+	else:
+		print("Cross-validation r2: %3f"%(result["r2"]))
+
 	return result
 
 
@@ -227,7 +288,11 @@ def run_train(args):
 		print("=================================")
 		print("== Evaluation ... ")
 		print("=================================")
-		for score_name in ["accuracy","f1","precision","recall","auc"]:
+		if args.task=="regression":
+			score_names=["r2","mse"]
+		else:
+			score_names=["accuracy","f1","precision","recall","auc"]
+		for score_name in score_names:
 			scores=[r[score_name] for r in results]
 			test_mean = np.nanmean(np.asarray(scores))
 			test_std = np.nanstd(np.asarray(scores))
@@ -243,8 +308,9 @@ def run_train(args):
 		for result in cv_result["cv"]:
 			test_y.extend(result["test_y"])
 			pred_y.extend(result["pred_y"])
-		conf=sklearn.metrics.confusion_matrix(test_y, pred_y)
-		cv_result["confusion"]=conf
+		if args.task!= "regression":
+			conf=sklearn.metrics.confusion_matrix(test_y, pred_y)
+			cv_result["confusion"]=conf
 		cv_result["task"]=args.task
 		##
 		## 結果をディクショナリに保存して返値とする
@@ -282,7 +348,7 @@ if __name__ == '__main__':
 	parser.add_argument("--model",default="rf",
 		help = "method (rf/svm/rbf_svm/lr)", type = str)
 	parser.add_argument("--task",default="auto",
-		help = "task type (auto/binary/multilabel)", type = str)
+		help = "task type (auto/binary/multilabel/regression)", type = str)
 	parser.add_argument('--output_json',default=None,
 		help = "output: json", type=str)
 	parser.add_argument('--output_csv',default=None,
@@ -304,11 +370,14 @@ if __name__ == '__main__':
 	##
 	## 結果を簡易に表示
 	##
-	metrics=["accuracy","auc"]
+	if args.task=="regression":
+		score_names=["r2","mse"]
+	else:
+		score_names=["accuracy","auc"]
 	print("=================================")
 	print("== summary ... ")
 	print("=================================")
-	metrics_names=sorted([m+"_mean" for m in metrics]+[m+"_std" for m in metrics])
+	metrics_names=sorted([m+"_mean" for m in score_names]+[m+"_std" for m in score_names])
 	print("\t".join(["filename"]+metrics_names))
 	for key,o in all_result.items():
 		arr=[key]
@@ -331,8 +400,11 @@ if __name__ == '__main__':
 	if args.output_csv:
 		print("[SAVE]",args.output_csv)
 		fp = open(args.output_csv, "w")
-		metrics= ["accuracy","f1","precision","recall","auc"]
-		metrics_names=sorted([m+"_mean" for m in metrics]+[m+"_std" for m in metrics])
+		if args.task=="regression":
+			score_names= ["r2","mse"]
+		else:
+			score_names= ["accuracy","f1","precision","recall","auc"]
+		metrics_names=sorted([m+"_mean" for m in score_names]+[m+"_std" for m in score_names])
 		fp.write("\t".join(["filename"]+metrics_names))
 		fp.write("\n")
 		for key,o in all_result.items():
