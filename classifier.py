@@ -172,6 +172,7 @@ def train_cv_one_fold(arg):
 		if hasattr(clf,"predict_proba"):
 			prob_y = rfe.predict_proba(test_x)
 		result["test_y"]=test_y
+		result["test_idx"]=test_idx
 		result["pred_y"]=pred_y
 		result["prob_y"]=prob_y
 		##
@@ -215,6 +216,7 @@ def train_cv_one_fold(arg):
 			"param":grid_search.best_params_,
 			"best_score":grid_search.best_score_,
 			"test_y":test_y,
+			"test_idx":test_idx,
 			"pred_y":pred_y,
 			"prob_y":prob_y,
 			})
@@ -234,6 +236,7 @@ def train_cv_one_fold(arg):
 	else:
 		pred_y = clf.predict(test_x)
 	result["test_y"]=test_y
+	result["test_idx"]=test_idx
 	result["pred_y"]=pred_y
 	prob_y=None
 	if hasattr(clf,"predict_proba"):
