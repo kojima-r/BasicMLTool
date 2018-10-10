@@ -12,6 +12,8 @@ with warnings.catch_warnings():
 	from sklearn.feature_selection import RFE,RFECV
 	from sklearn import svm
 	import sklearn
+	from sklearn.preprocessing import StandardScaler
+	from sklearn.preprocessing import Imputer
 import csv
 import json
 
@@ -264,6 +266,13 @@ def run_train(args):
 		print("== Loading data ... ")
 		print("=================================")
 		x,y,h=load_data(filename,ans_col=args.answer,ignore_col=args.ignore,header=args.header)
+		## 欠損値を補完(平均)
+		imr = Imputer(missing_values=np.nan, strategy='mean', axis=0)
+		x = imr.fit_transform(x)
+		## 標準化
+		sc = StandardScaler()
+		x = sc.fit_transform(x)
+		
 		print("x:",x.shape)
 		print("y:",y.shape)
 		## データから２クラス問題か多クラス問題化を決めておく
