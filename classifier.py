@@ -12,6 +12,8 @@ with warnings.catch_warnings():
 	from sklearn.feature_selection import RFE,RFECV
 	from sklearn import svm
 	import sklearn
+	from sklearn.preprocessing import StandardScaler
+	from sklearn.preprocessing import Imputer
 import csv
 import json
 
@@ -172,6 +174,7 @@ def train_cv_one_fold(arg):
 		if hasattr(clf,"predict_proba"):
 			prob_y = rfe.predict_proba(test_x)
 		result["test_y"]=test_y
+		result["test_idx"]=test_idx
 		result["pred_y"]=pred_y
 		result["prob_y"]=prob_y
 		##
@@ -215,6 +218,7 @@ def train_cv_one_fold(arg):
 			"param":grid_search.best_params_,
 			"best_score":grid_search.best_score_,
 			"test_y":test_y,
+			"test_idx":test_idx,
 			"pred_y":pred_y,
 			"prob_y":prob_y,
 			})
@@ -234,6 +238,7 @@ def train_cv_one_fold(arg):
 	else:
 		pred_y = clf.predict(test_x)
 	result["test_y"]=test_y
+	result["test_idx"]=test_idx
 	result["pred_y"]=pred_y
 	prob_y=None
 	if hasattr(clf,"predict_proba"):
@@ -261,6 +266,13 @@ def run_train(args):
 		print("== Loading data ... ")
 		print("=================================")
 		x,y,h=load_data(filename,ans_col=args.answer,ignore_col=args.ignore,header=args.header)
+		## 欠損値を補完(平均)
+		imr = Imputer(missing_values=np.nan, strategy='mean', axis=0)
+		x = imr.fit_transform(x)
+		## 標準化
+		sc = StandardScaler()
+		x = sc.fit_transform(x)
+		
 		print("x:",x.shape)
 		print("y:",y.shape)
 		## データから２クラス問題か多クラス問題化を決めておく
