@@ -142,7 +142,7 @@ def evaluate(test_y,pred_y,prob_y,args,result={}):
 # cross-validation の1 fold 分の計算           #
 ################################################
 def train_cv_one_fold(arg):
-	x,y,h,one_kf=arg
+	x,y,h,one_kf,args=arg
 	##
 	## 学習用セットとテスト用セットに分ける
 	##
@@ -290,7 +290,7 @@ def run_train(args):
 		print("=================================")
 		kf=sklearn.model_selection.KFold(n_splits=args.splits, shuffle=True)
 		pool = Pool(processes=args.splits)
-		results = pool.map(train_cv_one_fold, [(x,y,h,s)for s in kf.split(x)])
+		results = pool.map(train_cv_one_fold, [(x,y,h,s,args)for s in kf.split(x)])
 
 		##
 		## cross-validation の結果をまとめる
