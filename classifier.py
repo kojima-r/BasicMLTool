@@ -183,9 +183,11 @@ def train_cv_one_fold(arg):
 		selected_feature=rfe.support_
 		print("=== selected feature ===")
 		if h is None:
-			print([i  for i,el in enumerate(selected_feature) if el==True])
+			selected_feature_name=[i  for i,el in enumerate(selected_feature) if el==True]
+			print(len(selected_feature_name),":",selected_feature_name)
 		else:
-			print([attr  for attr,el in zip(h,selected_feature) if el==True])
+			selected_feature_name=[attr  for attr,el in zip(h,selected_feature) if el==True]
+			print(len(selected_feature_name),":",selected_feature_name)
 		result["selected_feature"]=selected_feature
 		##
 		## 学習・テストデータをこのfold中、選択された特徴のみにする
@@ -241,6 +243,7 @@ def train_cv_one_fold(arg):
 	if isinstance(clf,RandomForestClassifier):
 		fi = clf.feature_importances_
 		result["feature_importance"]=fi
+		print("feature_importance",len(fi),":",fi)
 	result["test_y"]=test_y
 	result["test_idx"]=test_idx
 	result["pred_y"]=pred_y
