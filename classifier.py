@@ -190,8 +190,8 @@ def train_cv_one_fold(arg):
 		##
 		## 学習・テストデータをこのfold中、選択された特徴のみにする
 		##
-		train_xf=train_x[:,selected_feature]
-		test_xf=test_x[:,selected_feature]
+		train_x=train_x[:,selected_feature]
+		test_x=test_x[:,selected_feature]
 	
 
 	if args.grid_search:
@@ -365,6 +365,8 @@ if __name__ == '__main__':
 		help = "output: json", type=str)
 	parser.add_argument('--output_csv',default=None,
 		help = "output: csv", type=str)
+	parser.add_argument('--seed',default=20,
+		help = "random seed", type=int)
 	
 	##
 	## コマンドラインのオプションによる設定はargsに保存する
@@ -373,7 +375,7 @@ if __name__ == '__main__':
 	##
 	## 乱数初期化
 	##
-	np.random.seed(20) 
+	np.random.seed(args.seed) 
 
 	##
 	## 学習開始
