@@ -167,7 +167,11 @@ def train_cv_one_fold(arg):
 		##
 		## 特徴選択を行い、選択された特徴で予測をする
 		##
-		rfe = RFECV(clf)
+		if args.num_features is not None:
+			rfe = RFE(clf,args.num_features)
+		else:
+			rfe = RFECV(clf)
+		
 		rfe = rfe.fit(train_x, train_y)
 		pred_y = rfe.predict(test_x)
 		prob_y = None
