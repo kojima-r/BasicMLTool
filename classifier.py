@@ -147,9 +147,9 @@ def train_cv_one_fold(arg):
 	## 学習用セットとテスト用セットに分ける
 	##
 	train_idx, test_idx = one_kf
-	train_x=x[train_idx]
+	train_x=np.copy(x[train_idx])
 	train_y=y[train_idx]
-	test_x=x[test_idx]
+	test_x=np.copy(x[test_idx])
 	test_y=y[test_idx]
 	##
 	## 手法を選択
@@ -190,8 +190,8 @@ def train_cv_one_fold(arg):
 		##
 		## 学習・テストデータをこのfold中、選択された特徴のみにする
 		##
-		train_x=train_x[:,selected_feature]
-		test_x=test_x[:,selected_feature]
+		train_xf=train_x[:,selected_feature]
+		test_xf=test_x[:,selected_feature]
 	
 
 	if args.grid_search:
