@@ -237,6 +237,10 @@ def train_cv_one_fold(arg):
 		result["pred_y_std"]=pred_y_std
 	else:
 		pred_y = clf.predict(test_x)
+	
+	if isinstance(clf,RandomForestClassifier):
+		fi = clf.feature_importances_
+		result["feature_importance"]=fi
 	result["test_y"]=test_y
 	result["test_idx"]=test_idx
 	result["pred_y"]=pred_y
