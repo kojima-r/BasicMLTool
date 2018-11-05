@@ -243,7 +243,9 @@ def train_cv_one_fold(arg):
 	if isinstance(clf,RandomForestClassifier):
 		fi = clf.feature_importances_
 		result["feature_importance"]=fi
-		print("feature_importance",len(fi),":",fi)
+		
+		fi_str=",".join(map(str,fi))
+		print("feature_importance",len(fi),":",fi_str)
 	result["test_y"]=test_y
 	result["test_idx"]=test_idx
 	result["pred_y"]=pred_y
@@ -374,6 +376,8 @@ if __name__ == '__main__':
 		help = "output: csv", type=str)
 	parser.add_argument('--seed',default=20,
 		help = "random seed", type=int)
+	parser.add_argument('--num_features',default=None,
+		help = "select features", type=int)
 	
 	##
 	## コマンドラインのオプションによる設定はargsに保存する
