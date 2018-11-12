@@ -34,20 +34,28 @@ def load_data_xsv(filename,header,ignore_col,ans_col,sep):
 		for row in tsv:
 			x_vec=[]
 			y_vec=[]
+			valid_line=True
 			if col_num==0:
 				col_num=len(row)
 			for i in range(col_num):
 				if i in ignore_col:
 					pass
 				elif i == ans_col:
-					y_vec.append(float(row[i]))
+					try:
+						y_vec.append(float(row[i]))
+					except:
+						valid_line=False
+						print("[SKIP] could not convert string to float:",row[i])
+						break
 				else:
 					if row[i]=="":
 						x_vec.append(np.nan)
 					else:
 						x_vec.append(float(row[i]))
-			x.append(x_vec)
-			y.append(y_vec[0])
+			if valid_line:
+				x.append(x_vec)
+				y.append(y_vec[0])
+			
 	return np.array(x),np.array(y),hx
 
 def load_data(filename,header=False,ignore_col=[],ans_col=[]):
