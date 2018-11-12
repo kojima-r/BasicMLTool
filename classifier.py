@@ -250,6 +250,10 @@ def train_cv_one_fold(arg):
 		
 		fi_str=",".join(map(str,fi))
 		print("feature_importance",len(fi),":",fi_str)
+	if isinstance(clf,RandomForestRegressor):
+		import forestci as fci
+		unbiased_var = fci.random_forest_error(clf,train_x,test_x)
+		result["test_y_std"]=np.sqrt(unbiased_var)
 	result["test_y"]=test_y
 	result["test_idx"]=test_idx
 	result["pred_y"]=pred_y
@@ -294,6 +298,8 @@ def run_train(args):
 				args.task="binary"
 			else:
 				args.task="multiclass"
+		if args.task!="regression":
+			y=y.astype(dtype=np.int64)
 		
 		##
 		## cross-validation を並列化して行う

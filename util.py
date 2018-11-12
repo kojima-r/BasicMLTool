@@ -40,7 +40,7 @@ def load_data_xsv(filename,header,ignore_col,ans_col,sep):
 				if i in ignore_col:
 					pass
 				elif i == ans_col:
-					y_vec.append(int(row[i]))
+					y_vec.append(float(row[i]))
 				else:
 					if row[i]=="":
 						x_vec.append(np.nan)
