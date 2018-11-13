@@ -251,9 +251,10 @@ def train_cv_one_fold(arg):
 		fi_str=",".join(map(str,fi))
 		print("feature_importance",len(fi),":",fi_str)
 	if isinstance(clf,RandomForestRegressor):
-		import forestci as fci
-		unbiased_var = fci.random_forest_error(clf,train_x,test_x)
-		result["test_y_std"]=np.sqrt(unbiased_var)
+		if args.fci:
+			import forestci as fci
+			unbiased_var = fci.random_forest_error(clf,train_x,test_x)
+			result["test_y_std"]=np.sqrt(unbiased_var)
 	result["test_y"]=test_y
 	result["test_idx"]=test_idx
 	result["pred_y"]=pred_y
@@ -388,6 +389,8 @@ if __name__ == '__main__':
 		help = "random seed", type=int)
 	parser.add_argument('--num_features',default=None,
 		help = "select features", type=int)
+	parser.add_argument("--fci",default=False,
+		help = "enabled forestci", action="store_true")
 	
 	##
 	## コマンドラインのオプションによる設定はargsに保存する
