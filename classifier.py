@@ -14,6 +14,7 @@ with warnings.catch_warnings():
 	import sklearn
 	from sklearn.preprocessing import StandardScaler
 	from sklearn.preprocessing import Imputer
+	from sklearn.utils import resample
 import csv
 import json
 
@@ -283,7 +284,9 @@ def run_train(args):
 		print("=================================")
 		print("== Loading data ... ")
 		print("=================================")
-		x,y,h=load_data(filename,ans_col=args.answer,ignore_col=args.ignore,header=args.header)
+		x,y,g,h=load_data(filename,ans_col=args.answer,ignore_col=args.ignore,header=args.header)
+		if args.data_sample is not None:
+			x,y,g = resample(x,y,g,n_samples=args.data_sample)
 		## 欠損値を補完(平均)
 		imr = Imputer(missing_values=np.nan, strategy='mean', axis=0)
 		x = imr.fit_transform(x)
@@ -293,6 +296,7 @@ def run_train(args):
 		
 		print("x:",x.shape)
 		print("y:",y.shape)
+		if g is not None: print("g:",g.shape)
 		## データから２クラス問題か多クラス問題化を決めておく
 		if args.task=="auto":
 			if len(np.unique(y))==2:
@@ -308,9 +312,14 @@ def run_train(args):
 		print("=================================")
 		print("== Starting cross-validation ... ")
 		print("=================================")
-		kf=sklearn.model_selection.KFold(n_splits=args.splits, shuffle=True)
-		pool = Pool(processes=args.splits)
-		results = pool.map(train_cv_one_fold, [(x,y,h,s,args)for s in kf.split(x)])
+		if g is not None:
+			kf=sklearn.model_selection.GroupKFold(n_splits=args.splits)
+			pool = Pool(processes=args.splits)
+			results = pool.map(train_cv_one_fold, [(x,y,h,s,args)for s in kf.split(x,y,g)])
+		else:
+			kf=sklearn.model_selection.KFold(n_splits=args.splits, shuffle=True)
+			pool = Pool(processes=args.splits)
+			results = pool.map(train_cv_one_fold, [(x,y,h,s,args)for s in kf.split(x)])
 
 		##
 		## cross-validation の結果をまとめる
@@ -391,6 +400,8 @@ if __name__ == '__main__':
 		help = "select features", type=int)
 	parser.add_argument("--fci",default=False,
 		help = "enabled forestci", action="store_true")
+	parser.add_argument('--data_sample',default=None,
+		help = "re-sample data", type=int)
 	
 	##
 	## コマンドラインのオプションによる設定はargsに保存する

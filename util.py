@@ -56,9 +56,19 @@ def load_data_xsv(filename,header,ignore_col,ans_col,sep):
 				x.append(x_vec)
 				y.append(y_vec[0])
 			
-	return np.array(x),np.array(y),hx
+	return np.array(x),np.array(y),None,hx
 
 def load_data(filename,header=False,ignore_col=[],ans_col=[]):
+	print(filename)
+	if "," in filename:
+		pair=filename.split(",")
+		print("[LOAD]",pair[0])
+		print("[LOAD]",pair[1])
+		print("[LOAD]",pair[2])
+		x=np.load(pair[0])
+		y=np.load(pair[1])
+		g=np.load(pair[2])
+		return x,y,g,None
 	_,ext=os.path.splitext(filename)
 	if ext==".csv":
 		return load_data_xsv(filename,header,ignore_col,ans_col,",")
@@ -68,7 +78,7 @@ def load_data(filename,header=False,ignore_col=[],ans_col=[]):
 		return load_data_xsv(filename,header,ignore_col,ans_col,"\t")
 	else:
 		print("[ERROR] unknown file format")
-	return None,None,None
+	return None,None,None,None
 
 def extract_data(filename,save_filename,support,header=False,ignore_col=[],ans_col=[]):
 	_,ext_in=os.path.splitext(filename)
