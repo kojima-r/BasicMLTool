@@ -4,6 +4,7 @@ import argparse
 import random
 import numpy as np
 import warnings
+import pickle
 from multiprocessing import Pool
 with warnings.catch_warnings():
 	warnings.simplefilter("ignore")
@@ -33,6 +34,22 @@ def get_classifier_model(args):
 			'max_depth'         : [None],
 			}
 		clf = RandomForestClassifier()
+	elif args.model=="xgb":
+		import xgboost
+		param_grid={
+			'max_depth':[x for x in range(3,10,2)],
+			'min_child_weight':[x for x in range(1,6,2)],
+			'subsample':[0.95],
+			'colsample_bytree': [1.0],
+			'n_estimators':[1000],
+			}
+		clf=xgboost.XGBClassifier()
+	elif args.model=="lgb":
+		import lightgbm as lgb
+		param_grid={
+			'n_estimators':[1000],
+			}
+		clf=lgb.LGBMClassifier()
 	elif args.model=="svm":
 		param_grid={
 			'C': np.linspace(0.0001, 10, num = args.trials)
@@ -193,14 +210,17 @@ def train_cv_one_fold(arg):
 		else:
 			selected_feature_name=[attr  for attr,el in zip(h,selected_feature) if el==True]
 			print(len(selected_feature_name),":",selected_feature_name)
+			result["selected_feature_name"]=selected_feature_name
 		result["selected_feature"]=selected_feature
+		result["feature_name"]=selected_feature
 		##
 		## 学習・テストデータをこのfold中、選択された特徴のみにする
 		##
 		train_x=train_x[:,selected_feature]
 		test_x=test_x[:,selected_feature]
-	
-
+	if h is not None:
+		result["feature_name"]=h
+		
 	if args.grid_search:
 		##
 		## グリッドサーチでハイパーパラメータを選択する
@@ -245,7 +265,7 @@ def train_cv_one_fold(arg):
 	else:
 		pred_y = clf.predict(test_x)
 	
-	if isinstance(clf,RandomForestClassifier):
+	if hasattr(clf,"feature_importances_"):
 		fi = clf.feature_importances_
 		result["feature_importance"]=fi
 		
@@ -272,7 +292,7 @@ def train_cv_one_fold(arg):
 	else:
 		print("Cross-validation r2: %3f"%(result["r2"]))
 
-	return result
+	return (result,clf)
 
 
 ##############################################
@@ -280,6 +300,7 @@ def train_cv_one_fold(arg):
 ##############################################
 def run_train(args):
 	all_result={}
+	model_result=[]
 	for filename in args.input_file:
 		print("=================================")
 		print("== Loading data ... ")
@@ -325,7 +346,8 @@ def run_train(args):
 		## cross-validation の結果をまとめる
 		## ・各評価値の平均・標準偏差を計算する
 		##
-		cv_result={"cv": results}
+		cv_result={"cv": [r[0] for r in results]}
+		model_result.append([r[1] for r in results])
 		print("=================================")
 		print("== Evaluation ... ")
 		print("=================================")
@@ -334,7 +356,7 @@ def run_train(args):
 		else:
 			score_names=["accuracy","f1","precision","recall","auc"]
 		for score_name in score_names:
-			scores=[r[score_name] for r in results]
+			scores=[r[0][score_name] for r in results]
 			test_mean = np.nanmean(np.asarray(scores))
 			test_std = np.nanstd(np.asarray(scores))
 			print("Mean %10s on test set: %3f (standard deviation: %3s)"
@@ -357,7 +379,7 @@ def run_train(args):
 		## 結果をディクショナリに保存して返値とする
 		##
 		all_result[filename]=cv_result
-	return all_result
+	return all_result,model_result
 
 
 ############################################################
@@ -394,6 +416,8 @@ if __name__ == '__main__':
 		help = "output: json", type=str)
 	parser.add_argument('--output_csv',default=None,
 		help = "output: csv", type=str)
+	parser.add_argument('--output_model',default=None,
+		help = "output: pickle", type=str)
 	parser.add_argument('--seed',default=20,
 		help = "random seed", type=int)
 	parser.add_argument('--num_features',default=None,
@@ -415,7 +439,7 @@ if __name__ == '__main__':
 	##
 	## 学習開始
 	##
-	all_result=run_train(args)
+	all_result,model_result=run_train(args)
 	##
 	## 結果を簡易に表示
 	##
@@ -462,4 +486,11 @@ if __name__ == '__main__':
 				arr.append("%2.4f"%(o[name],))
 			fp.write("\t".join(arr))
 			fp.write("\n")
+	##
+	## 学習済みモデルをpickle ファイルに保存
+	##
+	if args.output_model:
+		print("[SAVE]",args.output_model)
+		with open(args.output_model, 'wb') as f:
+			pickle.dump(model_result, f)
 		
