@@ -70,7 +70,20 @@ if __name__ == '__main__':
 	with open(args.input_file[0]) as fp:
 		obj=json.load(fp)
 	for k,v in obj.items():
-		for fold in v["cv"]:
-			print(len(fold["feature_importance"]))
+		for cv_count,fold in enumerate(v["cv"]):
+			x=[]
+			y=[]
+			xlabel=[]
+			print("fold:",cv_count)
+			for i,name in enumerate(fold["feature_name"]):
+				f=fold["feature_importance"][i]
+				print(name, f)
+				x.append(i)
+				y.append(f)
+				xlabel.append(name)
+			plt.bar(x,y)
+			plt.xticks(x,xlabel,rotation=90, size='small')
+			plt.savefig("cv%02d.png"%(cv_count,))
+			plt.clf()
 
 	

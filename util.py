@@ -9,21 +9,35 @@ with warnings.catch_warnings():
 import csv
 import json
 
-
-def load_data_xsv(filename,header,ignore_col,ans_col,sep):
+def onehot(x,hx,cat_col,category):
+	new_x=[]
+	new_hx=[]
+	prev_c=None
+	for c in cat_col:
+		if prev_c is None:
+			tmp=x[:,:c]
+		else:
+			tmp=x[:,prev_c+1:c]
+			
+		prev_c=c
+		tmp=x[:,c+1:c]
+	return x,y,hx
+def load_data_xsv(filename,header,ignore_col,ans_col,sep,cat_col=[]):
 	x=[]
 	y=[]
 	hx=None
 	hy=None
 	col_num=0
+	categorical={}
 	with open(filename) as fp:
-		tsv = csv.reader(fp, delimiter = sep)
+		tsv = csv.reader(fp, delimiter = sep,quotechar='"')
 		if header:
 			row=next(tsv)
 			hx=[]
 			hy=[]
 			if col_num==0:
 				col_num=len(row)
+				print(col_num)
 			for i in range(col_num):
 				if i in ignore_col:
 					pass
@@ -31,7 +45,7 @@ def load_data_xsv(filename,header,ignore_col,ans_col,sep):
 					hy.append(row[i])
 				else:
 					hx.append(row[i])
-		for row in tsv:
+		for line_no,row in enumerate(tsv):
 			x_vec=[]
 			y_vec=[]
 			valid_line=True
@@ -47,8 +61,15 @@ def load_data_xsv(filename,header,ignore_col,ans_col,sep):
 						valid_line=False
 						print("[SKIP] could not convert string to float:",row[i])
 						break
+				elif i in cat_col:
+					if row[i] not in categorical:
+						categorical[row[i]]=len(categorical)
+					x_vec.append(categorical[row[i]])
 				else:
-					if row[i]=="":
+					if i>=len(row):
+						x_vec.append(np.nan)
+						print("[WARN] Line",line_no,"is length", len(row), " and shorter than its expectation",col_num)
+					elif row[i]=="":
 						x_vec.append(np.nan)
 					else:
 						x_vec.append(float(row[i]))
@@ -58,7 +79,7 @@ def load_data_xsv(filename,header,ignore_col,ans_col,sep):
 			
 	return np.array(x),np.array(y),None,hx
 
-def load_data(filename,header=False,ignore_col=[],ans_col=[]):
+def load_data(filename,header=False,ignore_col=[],ans_col=[],cat_col=[]):
 	print(filename)
 	if "," in filename:
 		pair=filename.split(",")
@@ -71,11 +92,11 @@ def load_data(filename,header=False,ignore_col=[],ans_col=[]):
 		return x,y,g,None
 	_,ext=os.path.splitext(filename)
 	if ext==".csv":
-		return load_data_xsv(filename,header,ignore_col,ans_col,",")
+		return load_data_xsv(filename,header,ignore_col,ans_col,",",cat_col)
 	elif ext==".tsv":
-		return load_data_xsv(filename,header,ignore_col,ans_col,"\t")
+		return load_data_xsv(filename,header,ignore_col,ans_col,"\t",cat_col)
 	elif ext==".txt":
-		return load_data_xsv(filename,header,ignore_col,ans_col,"\t")
+		return load_data_xsv(filename,header,ignore_col,ans_col,"\t",cat_col)
 	else:
 		print("[ERROR] unknown file format")
 	return None,None,None,None

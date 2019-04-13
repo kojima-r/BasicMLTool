@@ -305,12 +305,18 @@ def run_train(args):
 		print("=================================")
 		print("== Loading data ... ")
 		print("=================================")
-		x,y,g,h=load_data(filename,ans_col=args.answer,ignore_col=args.ignore,header=args.header)
+		x,y,g,h=load_data(filename,ans_col=args.answer,ignore_col=args.ignore,header=args.header,cat_col=args.categorical)
 		if args.data_sample is not None:
 			x,y,g = resample(x,y,g,n_samples=args.data_sample)
 		## 欠損値を補完(平均)
+		m=np.nanmean(x,axis=0)
+		h=np.array(h)[~np.isnan(m)]
+		print(len(h))
+		print(h)
 		imr = Imputer(missing_values=np.nan, strategy='mean', axis=0)
 		x = imr.fit_transform(x)
+		print("x:",x.shape)
+		print("y:",y.shape)
 		## 標準化
 		sc = StandardScaler()
 		x = sc.fit_transform(x)
@@ -406,6 +412,8 @@ if __name__ == '__main__':
 		help = "number of splits", action='store_true')
 	parser.add_argument('--answer','-A',
 		help = "column number of answer label", type=int)
+	parser.add_argument('--categorical','-C',nargs='*',default=[],
+		help = "column numbers for categorical data", type=int)
 	parser.add_argument('--ignore','-I',nargs='*',default=[],
 		help = "column numbers for ignored data", type=int)
 	parser.add_argument("--model",default="rf",
