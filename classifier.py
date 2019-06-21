@@ -305,7 +305,19 @@ def run_train(args):
 		print("=================================")
 		print("== Loading data ... ")
 		print("=================================")
-		x,y,g,h=load_data(filename,ans_col=args.answer,ignore_col=args.ignore,header=args.header,cat_col=args.categorical)
+		option={}
+		if args.group is not None:
+			option["group"]=args.group
+		x,y,opt,h=load_data(filename,ans_col=args.answer,ignore_col=args.ignore,header=args.header,cat_col=args.categorical,option=option)
+		g=None
+		if args.group is not None:
+			g=[]
+			mapping_g={}
+			for g_name in opt["group"]:
+				if g_name not in mapping_g:
+					mapping_g[g_name]=len(mapping_g)
+				g.append(mapping_g[g_name])
+			g=np.array(g,dtype=np.int32)
 		if args.data_sample is not None:
 			x,y,g = resample(x,y,g,n_samples=args.data_sample)
 		## 欠損値を補完(平均)
@@ -434,6 +446,8 @@ if __name__ == '__main__':
 		help = "enabled forestci", action="store_true")
 	parser.add_argument('--data_sample',default=None,
 		help = "re-sample data", type=int)
+	parser.add_argument('--group','-g',nargs='+',default=None,
+		help = "column number of group", type=int)
 	
 	##
 	## コマンドラインのオプションによる設定はargsに保存する

@@ -22,13 +22,24 @@ def onehot(x,hx,cat_col,category):
 		prev_c=c
 		tmp=x[:,c+1:c]
 	return x,y,hx
-def load_data_xsv(filename,header,ignore_col,ans_col,sep,cat_col=[]):
+def flatten(l):
+	ret = []
+	for a in l:
+		if hasattr(a,'__iter__'):
+			ret += flatten(a)
+		else:
+			ret.append(a)
+	return ret
+
+def load_data_xsv(filename,header,ignore_col,ans_col,sep,cat_col=[],option={}):
 	x=[]
 	y=[]
 	hx=None
 	hy=None
 	col_num=0
 	categorical={}
+	option_data={k:[] for k in option.keys()}
+	option_vals=flatten(option.values())
 	with open(filename) as fp:
 		tsv = csv.reader(fp, delimiter = sep,quotechar='"')
 		if header:
@@ -37,9 +48,11 @@ def load_data_xsv(filename,header,ignore_col,ans_col,sep,cat_col=[]):
 			hy=[]
 			if col_num==0:
 				col_num=len(row)
-				print(col_num)
+				print("the number of columns=",col_num)
 			for i in range(col_num):
 				if i in ignore_col:
+					pass
+				elif i in option_vals:
 					pass
 				elif i == ans_col:
 					hy.append(row[i])
@@ -49,6 +62,7 @@ def load_data_xsv(filename,header,ignore_col,ans_col,sep,cat_col=[]):
 			x_vec=[]
 			y_vec=[]
 			valid_line=True
+			option_flag={k:True for k in option.keys()}
 			if col_num==0:
 				col_num=len(row)
 			for i in range(col_num):
@@ -61,6 +75,15 @@ def load_data_xsv(filename,header,ignore_col,ans_col,sep,cat_col=[]):
 						valid_line=False
 						print("[SKIP] could not convert string to float:",row[i])
 						break
+				elif i in option_vals:
+					for key,value in option.items():
+						if (hasattr(value,'__iter__') and i in value) or (i==value):
+							if option_flag[key]:
+								option_data[key].append(row[i])
+								option_flag[key]=False
+							else:
+								s=option_data[key][-1]
+								option_data[key][-1]=s+"-"+row[i]
 				elif i in cat_col:
 					if row[i] not in categorical:
 						categorical[row[i]]=len(categorical)
@@ -77,9 +100,9 @@ def load_data_xsv(filename,header,ignore_col,ans_col,sep,cat_col=[]):
 				x.append(x_vec)
 				y.append(y_vec[0])
 			
-	return np.array(x),np.array(y),None,hx
+	return np.array(x),np.array(y),option_data,hx
 
-def load_data(filename,header=False,ignore_col=[],ans_col=[],cat_col=[]):
+def load_data(filename,header=False,ignore_col=[],ans_col=[],cat_col=[],option={}):
 	print(filename)
 	if "," in filename:
 		pair=filename.split(",")
@@ -88,15 +111,17 @@ def load_data(filename,header=False,ignore_col=[],ans_col=[],cat_col=[]):
 		print("[LOAD]",pair[2])
 		x=np.load(pair[0])
 		y=np.load(pair[1])
-		g=np.load(pair[2])
-		return x,y,g,None
+		opt={}
+		opt["group"]=np.load(pair[2])
+
+		return x,y,opt,None
 	_,ext=os.path.splitext(filename)
 	if ext==".csv":
-		return load_data_xsv(filename,header,ignore_col,ans_col,",",cat_col)
+		return load_data_xsv(filename,header,ignore_col,ans_col,",",cat_col,option)
 	elif ext==".tsv":
-		return load_data_xsv(filename,header,ignore_col,ans_col,"\t",cat_col)
+		return load_data_xsv(filename,header,ignore_col,ans_col,"\t",cat_col,option)
 	elif ext==".txt":
-		return load_data_xsv(filename,header,ignore_col,ans_col,"\t",cat_col)
+		return load_data_xsv(filename,header,ignore_col,ans_col,"\t",cat_col,option)
 	else:
 		print("[ERROR] unknown file format")
 	return None,None,None,None
