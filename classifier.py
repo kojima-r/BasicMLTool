@@ -55,6 +55,11 @@ def get_classifier_model(args):
 			'C': np.linspace(0.0001, 10, num = args.trials)
 			}
 		clf = svm.SVC(kernel = 'linear',probability=True)
+	elif args.model=="poly_svm":
+		param_grid={
+			'C': np.linspace(0.0001, 10, num = args.trials)
+			}
+		clf = svm.SVC(kernel = 'poly',probability=True)
 	elif args.model=="rbf_svm":
 		param_grid={
 			'C':np.linspace(0.0001, 10, num = args.trials),
@@ -82,6 +87,12 @@ def get_regressor_model(args):
 			'max_depth'         : [None],
 			}
 		clf = RandomForestRegressor()
+	elif args.model=="lgb":
+		import lightgbm as lgb
+		param_grid={
+			'n_estimators':[1000],
+			}
+		clf=lgb.LGBMRegressor()
 	elif args.model=="svm":
 		param_grid={
 			'C': np.linspace(0.0001, 10, num = args.trials)
@@ -93,6 +104,11 @@ def get_regressor_model(args):
 			'gamma':np.linspace(0.01, 100, num = args.trials)
 			}
 		clf = svm.SVR(kernel = 'rbf')
+	elif args.model=="poly_svm":
+		param_grid={
+			'C':np.linspace(0.0001, 10, num = args.trials),
+			}
+		clf = svm.SVR(kernel = 'poly')
 	elif args.model=="en":
 		param_grid={
 			"alpha":np.linspace(0.0001, 10, num = args.trials),
