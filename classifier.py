@@ -288,7 +288,8 @@ def train_cv_one_fold(arg):
 	##
 	result=evaluate(test_y,pred_y,prob_y,args,result)
 	if "accuracy" in result:
-		print("Cross-validation accuracy: %3f"%(result["accuracy"]))
+		print("Cross-validation test accuracy: %3f"%(result["accuracy"]))
+		print("Cross-validation test AUC: %3f"%(result["auc"]))
 	else:
 		print("Cross-validation r2: %3f"%(result["r2"]))
 
