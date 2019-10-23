@@ -107,7 +107,11 @@ def load_data_xsv(filename, header, ignore_col, ans_col, sep, cat_col=[], option
                     elif row[i] == "":
                         x_vec.append(np.nan)
                     else:
-                        x_vec.append(float(row[i]))
+                        try:
+                            cell=float(row[i])
+                        except:
+                            cell=np.nan
+                        x_vec.append(cell)
             if valid_line:
                 x.append(x_vec)
                 if len(y_vec) > 0:
