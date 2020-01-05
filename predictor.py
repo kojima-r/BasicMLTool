@@ -105,13 +105,21 @@ def run_predicition(args, clf):
         if args.task != "regression":
             y = y.astype(dtype=np.int64)
         print(args.task)
-        pred_y = clf.predict(x)
+        if type(clf) is list:
+            for c in clf[:-1]:
+                print(c)
+                x = c.transform(x)
+            clf=clf[-1]
+            pred_y = clf.predict(x)
+        else:
+            pred_y = clf.predict(x)
         prob_y = None
         if hasattr(clf, "predict_proba"):
             prob_y = clf.predict_proba(x)
         result = evaluate(y, pred_y, prob_y, args)
         result["pred_y"] = pred_y
         result["prob_y"] = prob_y
+        result["test_y"] = y
         # a
         ## 全体の評価
         ##
@@ -195,6 +203,14 @@ if __name__ == "__main__":
         clf = clfs[0][0]
         print(clf)
     all_result = run_predicition(args, clf)
+    ##
+    ## 結果をjson ファイルに保存
+    ## 予測結果やcross-validationなどの細かい結果も保存される
+    ##
+    if args.output_json:
+        print("[SAVE]", args.output_json)
+        fp = open(args.output_json, "w")
+        json.dump(all_result, fp, indent=4, cls=NumPyArangeEncoder)
     ##
     if args.task == "regression":
         score_names = ["r2", "mse"]

@@ -19,9 +19,36 @@ with warnings.catch_warnings():
     from sklearn.utils import resample
 import csv
 import json
+import functools
 
 # this project
 from util import load_data, NumPyArangeEncoder
+
+
+def objective(train_x, train_y, valid_x, valid_y, trial):
+    import xgboost
+    param={
+        'max_depth':trial.suggest_int('max_depth',1,30),
+        'learning_rate': trial.suggest_uniform('learning_rate',0.0,1),
+        'round_num': trial.suggest_int('round_num',1,30),
+    }
+
+    clf = xgboost.XGBClassifier(
+        max_depth=param['max_depth'],
+        learning_rate=param['learning_rate'],
+        round_num=param['round_num'])
+    clf.fit(train_x,train_y)
+    return 1.0-clf.score(valid_x,valid_y)
+
+def optimize(x, y):
+    import optuna
+    import xgboost
+    train_x,valid_x,train_y,valid_y=sklearn.model_selection.train_test_split(x, y, test_size=0.2)
+    obj_f = functools.partial(objective, train_x, train_y, valid_x, valid_y)
+    study = optuna.create_study()
+    study.optimize(obj_f, n_trials=100)
+    clf = xgboost.XGBClassifier(**study.best_params)
+    return clf
 
 #############################################################################
 # 識別のためのモデルとグリッドサーチのためのパラメータを返す　　　　　　　　#
@@ -37,7 +64,6 @@ def get_classifier_model(args):
         clf = RandomForestClassifier()
     elif args.model == "xgb":
         import xgboost
-
         param_grid = {
             "max_depth": [x for x in range(3, 10, 2)],
             "min_child_weight": [x for x in range(1, 6, 2)],
@@ -116,6 +142,44 @@ def get_regressor_model(args):
         raise Exception("[ERROR] unknown model:", args.model)
     return clf, param_grid
 
+def evaluate_group(test_y, pred_y, prob_y, test_group, args, result={}):
+    group_pred_y={}
+    group_prob_y={}
+    group_test_y={}
+    for g, y_prob, y_pred, y_test in zip(test_group,prob_y,pred_y,test_y):
+        if g not in group_test_y:
+            group_pred_y[g]=[]
+            group_prob_y[g]=[]
+            group_test_y[g]=[]
+        group_pred_y[g].append(y_pred)
+        group_prob_y[g].append(y_prob)
+        group_test_y[g].append(y_test)
+    g_list=[]
+    pred_y_list=[]
+    test_y_list=[]
+    for g in group_pred_y.keys():
+        y=np.mean(group_prob_y[g],axis=0)
+        print(y)
+        yi=np.argmax(y)
+        label=group_test_y[g][0]
+        g_list.append(g)
+        pred_y_list.append(yi)
+        test_y_list.append(label)
+    if args.task == "binary" or args.task == "multiclass":
+        precision, recall, f1, support = sklearn.metrics.precision_recall_fscore_support(
+            test_y_list, pred_y_list, average="macro"
+        )
+        result["group_agg_precision"] = precision
+        result["group_agg_recall"] = precision
+        result["group_agg_f1"] = f1
+        conf = sklearn.metrics.confusion_matrix(test_y_list, pred_y_list)
+        result["group_agg_confusion"] = conf
+        accuracy = sklearn.metrics.accuracy_score(test_y_list, pred_y_list)
+        result["group_agg_accuracy"] = accuracy
+    else:
+        raise Exception("[ERROR] unknown task:", args.task)
+    return result
+
 
 ################################################
 # 評価を行う　　　　　　　                  　 #
@@ -177,7 +241,14 @@ def evaluate(test_y, pred_y, prob_y, args, result={}):
 # cross-validation の1 fold 分の計算           #
 ################################################
 def train_cv_one_fold(arg):
-    x, y, h, one_kf, args = arg
+    g=None
+    if len(arg)==6:
+        # groupの情報がある場合
+        x, y, h, one_kf, g, args = arg
+    else:
+        # groupの情報がない場合
+        x, y, h, one_kf, args = arg
+    pipeline=[]
     ##
     ## 学習用セットとテスト用セットに分ける
     ##
@@ -186,6 +257,7 @@ def train_cv_one_fold(arg):
     train_y = y[train_idx]
     test_x = np.copy(x[test_idx])
     test_y = y[test_idx]
+    test_g = g[test_idx] if g is not None else None
     ##
     ## 手法を選択
     ##
@@ -205,31 +277,24 @@ def train_cv_one_fold(arg):
         if args.num_features is not None:
             rfe = RFE(clf, args.num_features)
         else:
-            rfe = RFECV(clf)
-
+            rfe = RFECV(clf,cv=3)
         rfe = rfe.fit(train_x, train_y)
-        pred_y = rfe.predict(test_x)
-        prob_y = None
-        if hasattr(clf, "predict_proba"):
-            prob_y = rfe.predict_proba(test_x)
-        result["test_y"] = test_y
-        result["test_idx"] = test_idx
-        result["pred_y"] = pred_y
-        result["prob_y"] = prob_y
+        """
+        # feature selection による予測結果を保存する場合はコメントをはずす
+        result["feature_selection_pred_y"] = rfe.predict(test_x)
+        prob_y = rfe.predict_proba(test_x) if hasattr(clf, "predict_proba") else None
+        result["feature_selection_prob_y"] = prob_y
+        """
         ##
         ## 選択された特徴を保存する
         ##
         selected_feature = rfe.support_
         print("=== selected feature ===")
         if h is None:
-            selected_feature_name = [
-                i for i, el in enumerate(selected_feature) if el == True
-            ]
+            selected_feature_name = [ i for i, el in enumerate(selected_feature) if el == True]
             print(len(selected_feature_name), ":", selected_feature_name)
         else:
-            selected_feature_name = [
-                attr for attr, el in zip(h, selected_feature) if el == True
-            ]
+            selected_feature_name = [ attr for attr, el in zip(h, selected_feature) if el == True]
             print(len(selected_feature_name), ":", selected_feature_name)
             result["selected_feature_name"] = selected_feature_name
         result["selected_feature"] = selected_feature
@@ -237,8 +302,9 @@ def train_cv_one_fold(arg):
         ##
         ## 学習・テストデータをこのfold中、選択された特徴のみにする
         ##
-        train_x = train_x[:, selected_feature]
-        test_x = test_x[:, selected_feature]
+        train_x = rfe.transform(train_x)
+        test_x = rfe.transform(test_x)
+        pipeline.append(rfe)
     if h is not None:
         result["feature_name"] = h
 
@@ -253,13 +319,6 @@ def train_cv_one_fold(arg):
         grid_search.fit(train_x, train_y)
 
         ##
-        ## 最も良かったハイパーパラメータのモデルを用いてテストデータで評価を行う
-        ##
-        pred_y = grid_search.predict(test_x)
-        prob_y = None
-        if hasattr(grid_search, "predict_proba"):
-            prob_y = grid_search.predict_proba(test_x)
-        ##
         ## 最も良かったハイパーパラメータや結果を保存
         ##
         print("Best parameters: {}".format(grid_search.best_params_))
@@ -268,50 +327,69 @@ def train_cv_one_fold(arg):
             {
                 "param": grid_search.best_params_,
                 "best_score": grid_search.best_score_,
-                "test_y": test_y,
-                "test_idx": test_idx,
-                "pred_y": pred_y,
-                "prob_y": prob_y,
             }
         )
+        """
+        ## 最も良かったハイパーパラメータのモデルを用いてテストデータで評価を行い、保存する場合はコメントをはずす
+        pred_y = grid_search.predict(test_x)
+        prob_y = grid_search.predict_proba(test_x) if hasattr(grid_search, "predict_proba") else  None
+        result["grid_search_pred_y"] = pred_y
+        prob_y = rfe.predict_proba(test_x) if hasattr(clf, "predict_proba") else None
+        result["grid_search_prob_y"] = prob_y
+        """
         ##
         ## 最も良かったハイパーパラメータの識別器を保存
         ## （学習データ全体での再フィッティングはこの段階では行わない）
         ##
         clf = grid_search.best_estimator_
+    if args.opt:
+        clf=optimize(train_x, train_y)
 
     ##
     ## clf を学習データ全体で再学習する
     ##
     clf.fit(train_x, train_y)
+    ##
+    ## 予測器ごとに特有の結果を出力する
+    ##
+    # ベイズ回帰の予測標準偏差
     if isinstance(clf, sklearn.linear_model.BayesianRidge):
         pred_y, pred_y_std = clf.predict(test_x, return_std=True)
         result["pred_y_std"] = pred_y_std
     else:
         pred_y = clf.predict(test_x)
 
+    # 特徴量の重要度
     if hasattr(clf, "feature_importances_"):
         fi = clf.feature_importances_
         result["feature_importance"] = fi
-
         fi_str = ",".join(map(str, fi))
         print("feature_importance", len(fi), ":", fi_str)
+
+    # ランダムフォレストの予測標準偏差
     if isinstance(clf, RandomForestRegressor):
         if args.fci:
             import forestci as fci
-
             unbiased_var = fci.random_forest_error(clf, train_x, test_x)
             result["test_y_std"] = np.sqrt(unbiased_var)
+
+    ##
+    ## 予測結果やインデックスの保存
+    ##
     result["test_y"] = test_y
     result["test_idx"] = test_idx
+    result["test_group"] = test_g
     result["pred_y"] = pred_y
-    prob_y = None
+    prob_y=None
     if hasattr(clf, "predict_proba"):
-        prob_y = clf.predict_proba(test_x)
-        result["prob_y"] = prob_y
+        prob_y=clf.predict_proba(test_x)
+    result["prob_y"] = prob_y
+    pipeline.append(clf)
     ##
     ## 評価
     ##
+    if test_g is not None:
+        result=evaluate_group(test_y, pred_y, prob_y, test_g, args, result=result)
     result = evaluate(test_y, pred_y, prob_y, args, result)
     if "accuracy" in result:
         print("Cross-validation test accuracy: %3f" % (result["accuracy"]))
@@ -319,7 +397,7 @@ def train_cv_one_fold(arg):
     else:
         print("Cross-validation r2: %3f" % (result["r2"]))
 
-    return (result, clf)
+    return (result, pipeline)
 
 
 ##############################################
@@ -344,7 +422,7 @@ def run_train(args):
             option=option,
         )
         g = None
-        if args.group is not None:
+        if args.group is not None or "group" in opt:
             g = []
             mapping_g = {}
             for g_name in opt["group"]:
@@ -355,10 +433,9 @@ def run_train(args):
         if args.data_sample is not None:
             x, y, g = resample(x, y, g, n_samples=args.data_sample)
         ## 欠損値を補完(平均)
-        m = np.nanmean(x, axis=0)
-        h = np.array(h)[~np.isnan(m)]
-        print(len(h))
-        print(h)
+        if h is not None:
+            m = np.nanmean(x, axis=0)
+            h = np.array(h)[~np.isnan(m)]
         imr = Imputer(missing_values=np.nan, strategy="mean", axis=0)
         x = imr.fit_transform(x)
         print("x:", x.shape)
@@ -371,6 +448,7 @@ def run_train(args):
         print("y:", y.shape)
         if g is not None:
             print("g:", g.shape)
+            print("grouping enabled:", g.shape)
         ## データから２クラス問題か多クラス問題化を決めておく
         if args.task == "auto":
             if len(np.unique(y)) == 2:
@@ -390,7 +468,7 @@ def run_train(args):
             kf = sklearn.model_selection.GroupKFold(n_splits=args.splits)
             pool = Pool(processes=args.splits)
             results = pool.map(
-                train_cv_one_fold, [(x, y, h, s, args) for s in kf.split(x, y, g)]
+                train_cv_one_fold, [(x, y, h, s, g, args) for s in kf.split(x, y, g)]
             )
         else:
             kf = sklearn.model_selection.KFold(n_splits=args.splits, shuffle=True)
@@ -532,6 +610,9 @@ if __name__ == "__main__":
         default=None,
         help="column number of group",
         type=int,
+    )
+    parser.add_argument(
+        "--opt", default=False, help="enabled optimization", action="store_true"
     )
 
     ##
