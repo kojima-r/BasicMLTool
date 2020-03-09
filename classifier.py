@@ -15,7 +15,7 @@ with warnings.catch_warnings():
     from sklearn import svm
     import sklearn
     from sklearn.preprocessing import StandardScaler
-    from sklearn.preprocessing import Imputer
+    from sklearn.impute import SimpleImputer
     from sklearn.utils import resample
 import csv
 import json
@@ -359,7 +359,7 @@ def run_train(args):
         h = np.array(h)[~np.isnan(m)]
         print(len(h))
         print(h)
-        imr = Imputer(missing_values=np.nan, strategy="mean", axis=0)
+        imr = SimpleImputer(missing_values=np.nan, strategy="mean")
         x = imr.fit_transform(x)
         print("x:", x.shape)
         print("y:", y.shape)
