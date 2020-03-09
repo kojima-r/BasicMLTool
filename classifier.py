@@ -314,8 +314,14 @@ def train_cv_one_fold(arg):
     ##
     result = evaluate(test_y, pred_y, prob_y, args, result)
     if "accuracy" in result:
-        print("Cross-validation test accuracy: %3f" % (result["accuracy"]))
-        print("Cross-validation test AUC: %3f" % (result["auc"]))
+        if args.task == "binary":
+            print("Cross-validation test accuracy: %3f" % (result["accuracy"]))
+            print("Cross-validation test AUC: %3f" % (result["auc"]))
+        if args.task == "multiclass":
+            for i,auc in enumerate(result["auc"]):
+                print("Task %d Cross-validation test AUC: %3f" % (i,auc))
+            acc=result["accuracy"]
+            print("Cross-validation test accuracy: %3f" % (acc))
     else:
         print("Cross-validation r2: %3f" % (result["r2"]))
 
@@ -356,9 +362,8 @@ def run_train(args):
             x, y, g = resample(x, y, g, n_samples=args.data_sample)
         ## 欠損値を補完(平均)
         m = np.nanmean(x, axis=0)
-        h = np.array(h)[~np.isnan(m)]
-        print(len(h))
-        print(h)
+        if h is not None:
+            h = np.array(h)[~np.isnan(m)]
         imr = SimpleImputer(missing_values=np.nan, strategy="mean")
         x = imr.fit_transform(x)
         print("x:", x.shape)
