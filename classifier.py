@@ -388,8 +388,8 @@ def train_cv_one_fold(arg):
     ##
     ## 評価
     ##
-    if test_g is not None:
-        result=evaluate_group(test_y, pred_y, prob_y, test_g, args, result=result)
+    #if test_g is not None:
+    #    result=evaluate_group(test_y, pred_y, prob_y, test_g, args, result=result)
     result = evaluate(test_y, pred_y, prob_y, args, result)
     if "accuracy" in result:
         print("Cross-validation test accuracy: %3f" % (result["accuracy"]))
@@ -423,13 +423,18 @@ def run_train(args):
         )
         g = None
         if args.group is not None or "group" in opt:
-            g = []
-            mapping_g = {}
-            for g_name in opt["group"]:
-                if g_name not in mapping_g:
-                    mapping_g[g_name] = len(mapping_g)
-                g.append(mapping_g[g_name])
-            g = np.array(g, dtype=np.int32)
+            if "group_type" in opt:
+                if opt["group_type"]!="int":
+                    print("group remapping")
+                    g = []
+                    mapping_g = {}
+                    for g_name in opt["group"]:
+                        if g_name not in mapping_g:
+                            mapping_g[g_name] = len(mapping_g)
+                        g.append(mapping_g[g_name])
+                    g = np.array(g, dtype=np.int32)
+                else:
+                    g = np.array(opt["group"], dtype=np.int32)
         if args.data_sample is not None:
             x, y, g = resample(x, y, g, n_samples=args.data_sample)
         ## 欠損値を補完(平均)
@@ -594,6 +599,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--output_json", default=None, help="output: json", type=str)
     parser.add_argument("--output_csv", default=None, help="output: csv", type=str)
+    parser.add_argument("--output_result_csv", default=None, help="output: csv", type=str)
     parser.add_argument("--output_model", default=None, help="output: pickle", type=str)
     parser.add_argument("--seed", default=20, help="random seed", type=int)
     parser.add_argument(
@@ -656,6 +662,36 @@ if __name__ == "__main__":
         print("[SAVE]", args.output_json)
         fp = open(args.output_json, "w")
         json.dump(all_result, fp, indent=4, cls=NumPyArangeEncoder)
+
+    ##
+    ## 結果をjson ファイルに保存
+    ## 予測結果やcross-validationなどの細かい結果も保存される
+    ##
+    if args.output_result_csv:
+        print("[SAVE]", args.output_result_csv)
+        fp = open(args.output_result_csv, "w")
+        fp.write("\t".join(["filename","index","group","fold","y","pred_y","prob_y"]))
+        fp.write("\n")
+        data=[]
+        for filename,obj in all_result.items():
+            for fold,o in enumerate(obj["cv"]):
+                idx_list=o["test_idx"]
+                for i,idx in enumerate(idx_list):
+                    y=o["test_y"][i]
+                    pred_y=o["pred_y"][i]
+                    g=""
+                    if "test_group" in o:
+                        g=o["test_group"][i]
+                    prob_y=""
+                    if "prob_y" in o:
+                        prob_y=o["prob_y"][i][pred_y]
+                    arr=[filename,idx,g,fold,y,pred_y,prob_y]
+                    data.append(arr)
+        for v in sorted(data):
+            arr=list(map(str,v))
+            fp.write("\t".join(arr))
+            fp.write("\n")
+
 
     ##
     ## 結果をcsv ファイルに保存

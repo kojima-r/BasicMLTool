@@ -183,6 +183,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--output_json", default=None, help="output: json", type=str)
     parser.add_argument("--output_csv", default=None, help="output: csv", type=str)
+    parser.add_argument("--output_result_csv", default=None, help="output: csv", type=str)
     parser.add_argument("--seed", default=20, help="random seed", type=int)
     parser.add_argument("--data_sample", default=None, help="re-sample data", type=int)
 
@@ -233,3 +234,35 @@ if __name__ == "__main__":
             fp.write("\t".join(arr))
             fp.write("\n")
     #
+    ## 結果をjson ファイルに保存
+    ## 予測結果やcross-validationなどの細かい結果も保存される
+    ##
+    if args.output_result_csv:
+        print("[SAVE]", args.output_result_csv)
+        fp = open(args.output_result_csv, "w")
+        fp.write("\t".join(["filename","index","group","fold","y","pred_y","prob_y"]))
+        fp.write("\n")
+        data=[]
+        fold=""
+        for filename,obj in all_result.items():
+            o=obj
+            idx_list=list(range(o["test_y"].shape[0]))
+            for i,idx in enumerate(idx_list):
+                y=o["test_y"][i]
+                pred_y=o["pred_y"][i]
+                g=""
+                if "test_group" in o:
+                    g=o["test_group"][i]
+                prob_y=""
+                if "prob_y" in o:
+                    prob_y=o["prob_y"][i][pred_y]
+                arr=[filename,idx,g,fold,y,pred_y,prob_y]
+                data.append(arr)
+        for v in sorted(data):
+            arr=list(map(str,v))
+            fp.write("\t".join(arr))
+            fp.write("\n")
+
+
+    ##
+
