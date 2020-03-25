@@ -14,7 +14,7 @@ with warnings.catch_warnings():
     from sklearn import svm
     import sklearn
     from sklearn.preprocessing import StandardScaler
-    from sklearn.preprocessing import Imputer
+    from sklearn.impute import SimpleImputer
     from sklearn.utils import resample
 import csv
 import json
@@ -88,7 +88,7 @@ def run_predicition(args, clf):
         if args.data_sample is not None:
             x, y, g = resample(x, y, g, n_samples=args.data_sample)
         ## 欠損値を補完(平均)
-        imr = Imputer(missing_values=np.nan, strategy="mean", axis=0)
+        imr = SimpleImputer(missing_values=np.nan, strategy="mean")
         x = imr.fit_transform(x)
         ## 標準化
         sc = StandardScaler()

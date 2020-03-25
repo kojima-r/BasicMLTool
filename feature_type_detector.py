@@ -10,9 +10,7 @@ with warnings.catch_warnings():
     warnings.simplefilter("ignore")
     import sklearn
     from sklearn.preprocessing import StandardScaler
-    from sklearn.preprocessing import Imputer
-
-    # from sklearn.impute import SimpleImputer
+    from sklearn.impute import SimpleImputer
     from sklearn.feature_selection import SelectKBest, f_regression
 import csv
 import json
