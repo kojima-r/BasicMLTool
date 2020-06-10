@@ -82,7 +82,7 @@ def get_regressor_model(args):
             "min_samples_split": [2],
             "max_depth": [None],
         }
-        clf = RandomForestRegressor()
+        clf = RandomForestRegressor(n_estimators=1000)
     elif args.model == "lgb":
         import lightgbm as lgb
 
@@ -125,6 +125,13 @@ def get_regressor_model(args):
 # result:評価結果を保存するためのディクショナリ#
 ################################################
 def evaluate(test_y, pred_y, prob_y, args, result={}):
+
+    mask=~np.isnan(test_y)
+    test_y=test_y[mask]
+    pred_y=pred_y[mask]
+    if prob_y is not None:
+        prob_y=prob_y[mask]
+
     if args.task == "binary":
         ## ２値分類
         auc = sklearn.metrics.roc_auc_score(test_y, prob_y[:, 1], average="macro")
@@ -182,6 +189,8 @@ def train_cv_one_fold(arg):
     ## 学習用セットとテスト用セットに分ける
     ##
     train_idx, test_idx = one_kf
+    if args.train_data_sample is not None:
+        train_idx = np.random.choice(train_idx, args.train_data_sample, replace=False)
     train_x = np.copy(x[train_idx])
     train_y = y[train_idx]
     test_x = np.copy(x[test_idx])
@@ -207,7 +216,8 @@ def train_cv_one_fold(arg):
         else:
             rfe = RFECV(clf)
 
-        rfe = rfe.fit(train_x, train_y)
+        mask=~np.isnan(train_y)
+        rfe = rfe.fit(train_x[mask,:], train_y[mask])
         pred_y = rfe.predict(test_x)
         prob_y = None
         if hasattr(clf, "predict_proba"):
@@ -250,7 +260,8 @@ def train_cv_one_fold(arg):
         grid_search = sklearn.model_selection.GridSearchCV(
             clf, param_grid, cv=args.param_search_splits
         )
-        grid_search.fit(train_x, train_y)
+        mask=~np.isnan(train_y)
+        grid_search.fit(train_x[mask,:], train_y[mask])
 
         ##
         ## 最も良かったハイパーパラメータのモデルを用いてテストデータで評価を行う
@@ -283,7 +294,8 @@ def train_cv_one_fold(arg):
     ##
     ## clf を学習データ全体で再学習する
     ##
-    clf.fit(train_x, train_y)
+    mask=~np.isnan(train_y)
+    clf.fit(train_x[mask,:], train_y[mask])
     if isinstance(clf, sklearn.linear_model.BayesianRidge):
         pred_y, pred_y_std = clf.predict(test_x, return_std=True)
         result["pred_y_std"] = pred_y_std
@@ -335,7 +347,7 @@ def run_train(args):
         option = {}
         if args.group is not None:
             option["group"] = args.group
-        x, y, opt, h = load_data(
+        x, y, opt, h, index = load_data(
             filename,
             ans_col=args.answer,
             ignore_col=args.ignore,
@@ -434,6 +446,7 @@ def run_train(args):
             conf = sklearn.metrics.confusion_matrix(test_y, pred_y)
             cv_result["confusion"] = conf
         cv_result["task"] = args.task
+        cv_result["index"] = index
         ##
         ## 結果をディクショナリに保存して返値とする
         ##
@@ -525,6 +538,7 @@ if __name__ == "__main__":
         "--fci", default=False, help="enabled forestci", action="store_true"
     )
     parser.add_argument("--data_sample", default=None, help="re-sample data", type=int)
+    parser.add_argument("--train_data_sample", default=None, help="re-sample training data", type=int)
     parser.add_argument(
         "--group",
         "-g",

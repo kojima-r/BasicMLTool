@@ -39,6 +39,7 @@ def flatten(l):
 def load_data_xsv(filename, header, ignore_col, ans_col, sep, cat_col=[], option={}):
     x = []
     y = []
+    index = []
     hx = None
     hy = None
     col_num = 0
@@ -64,10 +65,12 @@ def load_data_xsv(filename, header, ignore_col, ans_col, sep, cat_col=[], option
                 else:
                     hx.append(row[i])
         for line_no, row in enumerate(tsv):
+            if header:
+                line_no+=1
             x_vec = []
             y_vec = []
+            opt_vec = []
             valid_line = True
-            option_flag = {k: True for k in option.keys()}
             if col_num == 0:
                 col_num = len(row)
             for i in range(col_num):
@@ -81,14 +84,7 @@ def load_data_xsv(filename, header, ignore_col, ans_col, sep, cat_col=[], option
                         print("[SKIP] could not convert string to float:", row[i])
                         break
                 elif i in option_vals:
-                    for key, value in option.items():
-                        if (hasattr(value, "__iter__") and i in value) or (i == value):
-                            if option_flag[key]:
-                                option_data[key].append(row[i])
-                                option_flag[key] = False
-                            else:
-                                s = option_data[key][-1]
-                                option_data[key][-1] = s + "-" + row[i]
+                    opt_vec.append((i,row[i]))
                 elif i in cat_col:
                     if row[i] not in categorical:
                         categorical[row[i]] = len(categorical)
@@ -114,10 +110,20 @@ def load_data_xsv(filename, header, ignore_col, ans_col, sep, cat_col=[], option
                         x_vec.append(cell)
             if valid_line:
                 x.append(x_vec)
+                index.append(line_no)
                 if len(y_vec) > 0:
                     y.append(y_vec[0])
-
-    return np.array(x), np.array(y), option_data, hx
+                option_flag = {k: True for k in option.keys()}
+                for i,cell in opt_vec:
+                    for key, value in option.items():
+                        if (hasattr(value, "__iter__") and i in value) or (i == value):
+                            if option_flag[key]:
+                                option_data[key].append(cell)
+                                option_flag[key] = False
+                            else:
+                                s = option_data[key][-1]
+                                option_data[key][-1] = s + "-" + cell
+    return np.array(x), np.array(y), option_data, hx,np.array(index)
 
 
 def load_data(filename, header=False, ignore_col=[], ans_col=[], cat_col=[], option={}):
@@ -132,7 +138,7 @@ def load_data(filename, header=False, ignore_col=[], ans_col=[], cat_col=[], opt
         opt = {}
         opt["group"] = np.load(pair[2])
 
-        return x, y, opt, None
+        return x, y, opt, None, None
     _, ext = os.path.splitext(filename)
     if ext == ".csv":
         return load_data_xsv(
@@ -148,7 +154,7 @@ def load_data(filename, header=False, ignore_col=[], ans_col=[], cat_col=[], opt
         )
     else:
         print("[ERROR] unknown file format")
-    return None, None, None, None
+    return None, None, None, None, None
 
 
 def extract_data(

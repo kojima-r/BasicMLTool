@@ -4,7 +4,6 @@ import random
 import pandas as pd
 import numpy as np
 import warnings
-import goodtables
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")

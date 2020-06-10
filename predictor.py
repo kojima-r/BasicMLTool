@@ -82,7 +82,7 @@ def run_predicition(args, clf):
         print("=================================")
         print("== Loading data ... ")
         print("=================================")
-        x, y, g, h = load_data(
+        x, y, g, h, index = load_data(
             filename, ans_col=args.answer, ignore_col=args.ignore, header=args.header
         )
         if args.data_sample is not None:
@@ -112,6 +112,7 @@ def run_predicition(args, clf):
         result = evaluate(y, pred_y, prob_y, args)
         result["pred_y"] = pred_y
         result["prob_y"] = prob_y
+        result["index"] = index
         # a
         ## 全体の評価
         ##
