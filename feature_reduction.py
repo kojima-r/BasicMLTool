@@ -8,7 +8,7 @@ with warnings.catch_warnings():
     warnings.simplefilter("ignore")
     import sklearn
     from sklearn.preprocessing import StandardScaler
-    from sklearn.preprocessing import Imputer
+    from sklearn.impute import SimpleImputer
 
     # from sklearn.impute import SimpleImputer
     from sklearn.feature_selection import SelectKBest, f_regression
@@ -38,7 +38,7 @@ def run_reduction(args):
         args.ignore.extend(ig_index)
         ## 欠損値を補完(平均)
         if args.imputer:
-            imr = Imputer(missing_values=np.nan, strategy="mean", axis=0, verbose=True)
+            imr = SimpleImputer(missing_values=np.nan, strategy="mean", axis=0, verbose=True)
             x = imr.fit_transform(x)
         ## 標準化
         if args.std:

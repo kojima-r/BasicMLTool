@@ -14,7 +14,7 @@ with warnings.catch_warnings():
     from sklearn import svm
     import sklearn
     from sklearn.preprocessing import StandardScaler
-    from sklearn.preprocessing import Imputer
+    from sklearn.impute import SimpleImputer
     from sklearn.utils import resample
 import csv
 import json
@@ -88,7 +88,7 @@ def run_predicition(args, clf):
         if args.data_sample is not None:
             x, y, g = resample(x, y, g, n_samples=args.data_sample)
         ## 欠損値を補完(平均)
-        imr = Imputer(missing_values=np.nan, strategy="mean", axis=0)
+        imr = SimpleImputer(missing_values=np.nan, strategy="mean")
         x = imr.fit_transform(x)
         ## 標準化
         sc = StandardScaler()
@@ -105,7 +105,14 @@ def run_predicition(args, clf):
         if args.task != "regression":
             y = y.astype(dtype=np.int64)
         print(args.task)
-        pred_y = clf.predict(x)
+        if type(clf) is list:
+            for c in clf[:-1]:
+                print(c)
+                x = c.transform(x)
+            clf=clf[-1]
+            pred_y = clf.predict(x)
+        else:
+            pred_y = clf.predict(x)
         prob_y = None
         if hasattr(clf, "predict_proba"):
             prob_y = clf.predict_proba(x)
@@ -113,6 +120,7 @@ def run_predicition(args, clf):
         result["pred_y"] = pred_y
         result["prob_y"] = prob_y
         result["index"] = index
+        result["test_y"] = y
         # a
         ## 全体の評価
         ##
@@ -176,6 +184,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--output_json", default=None, help="output: json", type=str)
     parser.add_argument("--output_csv", default=None, help="output: csv", type=str)
+    parser.add_argument("--output_result_csv", default=None, help="output: csv", type=str)
     parser.add_argument("--seed", default=20, help="random seed", type=int)
     parser.add_argument("--data_sample", default=None, help="re-sample data", type=int)
 
@@ -196,6 +205,14 @@ if __name__ == "__main__":
         clf = clfs[0][0]
         print(clf)
     all_result = run_predicition(args, clf)
+    ##
+    ## 結果をjson ファイルに保存
+    ## 予測結果やcross-validationなどの細かい結果も保存される
+    ##
+    if args.output_json:
+        print("[SAVE]", args.output_json)
+        fp = open(args.output_json, "w")
+        json.dump(all_result, fp, indent=4, cls=NumPyArangeEncoder)
     ##
     if args.task == "regression":
         score_names = ["r2", "mse"]
@@ -218,3 +235,35 @@ if __name__ == "__main__":
             fp.write("\t".join(arr))
             fp.write("\n")
     #
+    ## 結果をjson ファイルに保存
+    ## 予測結果やcross-validationなどの細かい結果も保存される
+    ##
+    if args.output_result_csv:
+        print("[SAVE]", args.output_result_csv)
+        fp = open(args.output_result_csv, "w")
+        fp.write("\t".join(["filename","index","group","fold","y","pred_y","prob_y"]))
+        fp.write("\n")
+        data=[]
+        fold=""
+        for filename,obj in all_result.items():
+            o=obj
+            idx_list=list(range(o["test_y"].shape[0]))
+            for i,idx in enumerate(idx_list):
+                y=o["test_y"][i]
+                pred_y=o["pred_y"][i]
+                g=""
+                if "test_group" in o:
+                    g=o["test_group"][i]
+                prob_y=""
+                if "prob_y" in o:
+                    prob_y=o["prob_y"][i][pred_y]
+                arr=[filename,idx,g,fold,y,pred_y,prob_y]
+                data.append(arr)
+        for v in sorted(data):
+            arr=list(map(str,v))
+            fp.write("\t".join(arr))
+            fp.write("\n")
+
+
+    ##
+
