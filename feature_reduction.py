@@ -25,9 +25,10 @@ def run_reduction(args):
         print("=================================")
         print("== Loading data ... ")
         print("=================================")
-        x, y, h = load_data(
+        x, y, opt, h, index = load_data(
             filename, ans_col=args.answer, ignore_col=args.ignore, header=args.header
         )
+
         save_filename = None
         if args.output is not None:
             save_filename = args.output[file_counter]
@@ -38,7 +39,7 @@ def run_reduction(args):
         args.ignore.extend(ig_index)
         ## 欠損値を補完(平均)
         if args.imputer:
-            imr = SimpleImputer(missing_values=np.nan, strategy="mean", axis=0, verbose=True)
+            imr = SimpleImputer(missing_values=np.nan, strategy="mean", verbose=True)
             x = imr.fit_transform(x)
         ## 標準化
         if args.std:
@@ -56,7 +57,9 @@ def run_reduction(args):
 
         # 5つの特徴量を選択
         selector = SelectKBest(score_func=f_regression, k=100)
-        selector.fit(x, y)
+
+        mask=~np.isnan(y)
+        selector.fit(x[mask,:],y[mask])
         mask = selector.get_support()
         print(h)
         print(mask)
