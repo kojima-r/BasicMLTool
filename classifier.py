@@ -690,7 +690,18 @@ if __name__ == "__main__":
     if args.output_result_csv:
         print("[SAVE]", args.output_result_csv)
         fp = open(args.output_result_csv, "w")
-        fp.write("\t".join(["filename","index","group","fold","y","pred_y","prob_y"]))
+        if args.task == "binary":
+            prob_y_name=["prob_y%02d"%(m,) for i in range(2)]
+        elif args.task=="multiclass":
+            m=0
+            for filename,obj in all_result.items():
+                for fold,o in enumerate(obj["cv"]):
+                    if m<len(o["auc"]):
+                        m=len(o["auc"])
+            prob_y_name=["prob_y%02d"%(i,) for i in range(m)]
+        else:
+            prob_y_name=[]
+        fp.write("\t".join(["filename","index","group","fold","y","pred_y","prob"]+prob_y_name))
         fp.write("\n")
         data=[]
         for filename,obj in all_result.items():
@@ -702,10 +713,12 @@ if __name__ == "__main__":
                     g=""
                     if "test_group" in o:
                         g=o["test_group"][i]
-                    prob_y=""
+                    prob=""
+                    prob_y=[]
                     if "prob_y" in o:
-                        prob_y=o["prob_y"][i][pred_y]
-                    arr=[filename,idx,g,fold,y,pred_y,prob_y]
+                        prob=o["prob_y"][i][pred_y]
+                        prob_y=list(o["prob_y"][i])
+                    arr=[filename,idx,g,fold,y,pred_y,prob]+prob_y
                     data.append(arr)
         for v in sorted(data):
             arr=list(map(str,v))

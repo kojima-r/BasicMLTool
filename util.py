@@ -138,7 +138,7 @@ def load_data(filename, header=False, ignore_col=[], ans_col=[], cat_col=[], opt
         opt = {}
         opt["group"] = np.load(pair[2])
         opt["group_type"] = "int"
-        return x, y, opt, None
+        return x, y, opt, None, None
     _, ext = os.path.splitext(filename)
     if ext == ".csv":
         return load_data_xsv(
